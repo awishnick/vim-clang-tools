@@ -30,4 +30,15 @@ function! s:initClangToolsPython()
     return 1
 endfunction
 
+function! ClangToolsGoToDefinition()
+  let l:filename = expand('%:p')
+  let l:line = line('.')
+  let l:column = col('.')
+  let l:newpos = getpos('.')
+  py vim.command('let l:lineAndCol =' + str(go_to_definition(vim.eval('l:filename'), vim.eval('l:line'), vim.eval('l:column'))))
+  let l:newpos[1] = lineAndCol[0]
+  let l:newpos[2] = lineAndCol[1]
+  call setpos('.', l:newpos)
+endfunction
+
 " vim: set ts=2 sts=2 sw=2 expandtab :    
