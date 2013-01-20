@@ -1,4 +1,5 @@
 import clang.cindex as ci
+import os.path
 import vim
 
 index = None
@@ -69,7 +70,10 @@ def reparse_all_tus():
 
 
 def go_to_definition(filename, line, col):
-    """Find the definition of the symbol under the cursor; navigate to it."""
+    """Find the definition of the symbol under the cursor.
+
+    Return a list of [line, column].
+    """
     line = int(line)
     col = int(col)
     print_debug('go_to_definition {}: {}, {}'.format(filename, line, col))
@@ -97,6 +101,11 @@ def go_to_definition(filename, line, col):
         return [line, col]
 
     target_loc = ref.location
+    print_debug(target_loc)
+    target_file = target_loc.file.name
+
+    if not os.path.samefile(filename, target_file):
+        vim.command(':split {}'.format(target_file))
 
     return [target_loc.line, target_loc.column]
 
@@ -146,7 +155,7 @@ def get_smallest_cursor_containing(cursor, loc):
     """Return the shortest child cursor containing the location."""
     cursors = get_cursors_containing(cursor, loc)
 
-    if len(cursors) == 0:
+    if not cursors:
         return None
 
     return min(cursors,
