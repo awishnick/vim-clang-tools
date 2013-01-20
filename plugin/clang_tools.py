@@ -125,3 +125,34 @@ def find_all_definitions(cursor):
                                     defns)
 
     return defns
+
+
+class CrossTUIndex:
+    """Index and cache across translation units.
+
+    If it can't be loaded, throw TranslationUnitLoadError."""
+    def __init__(self):
+        self.index = ci.Index.create()
+        self.tus = dict()
+
+    def get_or_parse_tu(self, filename):
+        """Get the translation unit, parsing it if it's not already loaded."""
+        try:
+            return self.tus[filename]
+        except KeyError:
+            # This can throw TranslationUnitLoadError.
+            tu = self.index.parse(filename)
+            self.tus[filename] = tu
+            return tu
+
+    def find_definition(self, filename, line, col):
+        """Find the definition of the symbol at the given position.
+
+        Return None if it cannot be found.
+        """
+        try:
+            tu = self.tus[filename]
+        except KeyError:
+            return None
+
+        return find_definition(tu, filename, line, col, self.tus.itervalues())
