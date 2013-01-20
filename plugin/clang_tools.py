@@ -1,3 +1,8 @@
+"""This contains the implementation of the tools, without editor-specific code.
+
+For example, the logic for finding a definition of a symbol belongs here, but
+the code for navigating there in the editor does not.
+"""
 import clang.cindex as ci
 
 index = None
@@ -78,13 +83,45 @@ def find_cursor_at_pos(tu, filename, line, col):
     return get_smallest_cursor_containing(tu.cursor, loc)
 
 
-def find_definition(tu, filename, line, col):
+def find_definition(tu, filename, line, col, tus=None):
     """Find the definition of the symbol at the given position.
-    
+
     Return None if it cannot be found."""
     cursor = find_cursor_at_pos(tu, filename, line, col)
     if cursor is None:
         return None
 
-    ref = cursor.referenced
-    return ref
+    # If the definition is in this TU, return it immediately.
+    if cursor.referenced.is_definition():
+        return cursor.referenced
+
+    # Otherwise we need to go searching in other TUs.
+    if not tus:
+        return None
+
+    usr = cursor.referenced.get_usr()
+    for tu in tus:
+        defns = find_all_definitions(tu.cursor)
+        if usr in defns:
+            return defns[usr]
+
+    return None
+
+
+def find_all_definitions(cursor):
+    """Find all definitions that are children of the cursor.
+
+    The returned definitions will be a dict of cursors, keyed by their USR.
+    """
+    def visitor(child, parent, acc_defns):
+        if child.is_definition():
+            acc_defns[child.get_usr()] = child
+        # Recurse.
+        return 2
+
+    defns = dict()
+    ci.conf.lib.clang_visitChildren(cursor,
+                                    ci.callbacks['cursor_visit'](visitor),
+                                    defns)
+
+    return defns
