@@ -19,7 +19,7 @@ class TestFindDefinition(unittest.TestCase):
         # Search for the definition of the function 'in_other_tu()'.
         defn = self.index.find_definition(self.test_file,
                                           line=7,
-                                          col=2)
+                                          col=9)
         self.assertIsNotNone(defn)
         self.assertEqual(defn.displayname, 'in_other_tu()')
         self.assertTrue(defn.is_definition())

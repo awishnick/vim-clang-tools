@@ -91,13 +91,16 @@ def find_definition(tu, filename, line, col, tus=None):
     if cursor is None:
         return None
 
+    if cursor.referenced is None:
+        return None
+
     # If the definition is in this TU, return it immediately.
     if cursor.referenced.is_definition():
         return cursor.referenced
 
     # Otherwise we need to go searching in other TUs.
     if not tus:
-        return None
+        return cursor.referenced
 
     usr = cursor.referenced.get_usr()
     for tu in tus:
@@ -105,7 +108,8 @@ def find_definition(tu, filename, line, col, tus=None):
         if usr in defns:
             return defns[usr]
 
-    return None
+    # Fall back on a declaration, if it can be found.
+    return cursor.referenced
 
 
 def find_all_definitions(cursor):
@@ -128,15 +132,16 @@ def find_all_definitions(cursor):
 
 
 class CrossTUIndex:
-    """Index and cache across translation units.
+    """Index and cache across translation units."""
 
-    If it can't be loaded, throw TranslationUnitLoadError."""
     def __init__(self):
         self.index = ci.Index.create()
         self.tus = dict()
 
     def get_or_parse_tu(self, filename):
-        """Get the translation unit, parsing it if it's not already loaded."""
+        """Get the translation unit, parsing it if it's not already loaded.
+
+        If it can't be loaded, throw TranslationUnitLoadError."""
         try:
             return self.tus[filename]
         except KeyError:
@@ -144,6 +149,17 @@ class CrossTUIndex:
             tu = self.index.parse(filename)
             self.tus[filename] = tu
             return tu
+
+    def parse_tu(self, filename):
+        """Parse the new translation unit.
+
+        It must not already be loaded. If it can't be loaded, throw
+        TranslationUnitLoadError.
+        """
+        assert filename not in self.tus
+        tu = self.index.parse(filename)
+        self.tus[filename] = tu
+        return tu
 
     def find_definition(self, filename, line, col):
         """Find the definition of the symbol at the given position.

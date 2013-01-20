@@ -1,10 +1,9 @@
 import clang.cindex as ci
 import os.path
 import vim
-from clang_tools import find_definition
+from clang_tools import CrossTUIndex
 
 index = None
-tus = dict()
 PRINT_DEBUG = False
 PRINT_WARNING = False
 
@@ -30,7 +29,7 @@ def init_clang_tools(library_path):
 
     global index
     try:
-        index = ci.Index.create()
+        index = CrossTUIndex()
     except Exception, e:
         print_warning('Failed to load libclang: {}'.format(str(e)))
         return 0
@@ -38,33 +37,23 @@ def init_clang_tools(library_path):
     return 1
 
 
-def get_tu(filename):
-    """Get the translation unit for the given file.
-
-    If it can't be loaded, throw TranslationUnitLoadError"""
-    global tus
-    global index
-    if filename in tus:
-        return tus[filename]
-
-    tu = index.parse(filename)
-    tus[filename] = tu
-    return tu
-
-
 def reparse_all_tus():
     """Reparse all translation units, using what's in vim's buffers."""
-    global tus
+    global index
     tus_to_reparse = []
     unsaved_files = []
     for b in vim.buffers:
         filename = b.name
-        if filename not in tus:
-            continue
 
-        tu = get_tu(filename)
-        tus_to_reparse.append(tu)
-        unsaved_files.append((filename, '\n'.join(b[:len(b)])))
+        try:
+            tu = index.tus[filename]
+            tus_to_reparse.append(tu)
+            unsaved_files.append((filename, '\n'.join(b[:len(b)])))
+        except KeyError:
+            _, ext = os.path.splitext(filename)
+            print_debug('parse_tu {} {}'.format(filename, ext))
+            if ext[1:] in ['c', 'cpp', 'h', 'm', 'mm']:
+                index.parse_tu(filename)
 
     for tu in tus_to_reparse:
         tu.reparse(unsaved_files)
@@ -79,18 +68,14 @@ def go_to_definition(filename, line, col):
     col = int(col)
     print_debug('go_to_definition {}: {}, {}'.format(filename, line, col))
 
-    try:
-        tu = get_tu(filename)
-    except ci.TranslationUnitLoadError, e:
-        print_warning('Could not load "{}": {}'.format(filename, str(e)))
-        return [line, col]
-
     # This should happen asynchronously as files are changed.
     reparse_all_tus()
 
-    ref = find_definition(tu, filename, line, col)
+    global index
+    ref = index.find_definition(filename, line, col)
     if ref is None:
         print_warning('No referenced cursor found.')
+        print_debug(index.tus)
         return [line, col]
 
     target_loc = ref.location
