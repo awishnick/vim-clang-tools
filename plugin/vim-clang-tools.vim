@@ -21,7 +21,7 @@ function! s:initClangToolsPython()
   if !exists('s:python_loaded')
     python import sys
     exe 'python sys.path = ["' . s:plugin_path . '"] + sys.path'
-    exe 'pyfile ' . s:plugin_path . '/clang-tools.py'
+    exe 'pyfile ' . s:plugin_path . '/vim_clang_tools.py'
     py vim.command('let l:res = ' + str(init_clang_tools(vim.eval('g:clangtools_library_path'))))
     if l:res == 0
       echoe 'clang_tools: Error loading the Python script.'
