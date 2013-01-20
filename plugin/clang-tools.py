@@ -24,7 +24,7 @@ def print_warning(message):
 
 def init_clang_tools(library_path):
     """Initialize libclang and tooling."""
-    if library_path != "":
+    if library_path != "" and not ci.Config.loaded:
         ci.Config.set_library_path(library_path)
 
     global index
