@@ -87,29 +87,6 @@ def find_definition(tu, filename, line, col, tus=None):
     """Find the definition of the symbol at the given position.
 
     Return None if it cannot be found."""
-    cursor = find_cursor_at_pos(tu, filename, line, col)
-    if cursor is None:
-        return None
-
-    if cursor.referenced is None:
-        return None
-
-    # If the definition is in this TU, return it immediately.
-    if cursor.referenced.is_definition():
-        return cursor.referenced
-
-    # Otherwise we need to go searching in other TUs.
-    if not tus:
-        return cursor.referenced
-
-    usr = cursor.referenced.get_usr()
-    for tu in tus:
-        defns = find_all_definitions(tu.cursor)
-        if usr in defns:
-            return defns[usr]
-
-    # Fall back on a declaration, if it can be found.
-    return cursor.referenced
 
 
 def find_all_definitions(cursor):
@@ -167,8 +144,30 @@ class CrossTUIndex:
         Return None if it cannot be found.
         """
         try:
-            tu = self.tus[filename]
+            cursor = find_cursor_at_pos(self.tus[filename],
+                                        filename, line, col)
         except KeyError:
             return None
 
-        return find_definition(tu, filename, line, col, self.tus.itervalues())
+        if cursor is None:
+            return None
+
+        if cursor.referenced is None:
+            return None
+
+        # If the definition is in this TU, return it immediately.
+        if cursor.referenced.is_definition():
+            return cursor.referenced
+
+        # Otherwise we need to go searching in other TUs.
+        if not self.tus:
+            return cursor.referenced
+
+        usr = cursor.referenced.get_usr()
+        for tu in self.tus.itervalues():
+            defns = find_all_definitions(tu.cursor)
+            if usr in defns:
+                return defns[usr]
+
+        # Fall back on a declaration, if it can be found.
+        return cursor.referenced
